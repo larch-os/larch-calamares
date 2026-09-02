@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: no
+# SPDX-License-Identifier: CC0-1.0
+#
+# Larch-specific: per-package setup for the optional extras offered on
+# the netinstall page (see src/modules/netinstall/netinstall.conf).
+# Plain "pacman -S" isn't enough for some of these -- docker and incus
+# both need their service enabled and the installed user added to the
+# right group before they're actually usable after first boot.
+---
+type:       "job"
+name:       "larch-postinstall"
+interface:  "python"
+script:     "main.py"
