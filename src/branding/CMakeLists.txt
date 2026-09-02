@@ -4,7 +4,7 @@
 #   SPDX-License-Identifier: BSD-2-Clause
 #
 
-# Add branding components. Since there is only one, called "default",
-# add that one. For examples of other branding components, see
-# the calamares-extensions repository.
+# Add branding components. "default" is upstream's example; "larch"
+# is ours, and is the one settings.conf actually points at.
 calamares_add_branding_subdirectory( default )
+calamares_add_branding_subdirectory( larch )
