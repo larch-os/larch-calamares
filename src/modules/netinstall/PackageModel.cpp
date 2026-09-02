@@ -172,9 +172,17 @@ PackageModel::setData( const QModelIndex& index, const QVariant& value, int role
         PackageTreeItem* item = static_cast< PackageTreeItem* >( index.internalPointer() );
         item->setSelected( static_cast< Qt::CheckState >( value.toInt() ) );
 
-        emit dataChanged( this->index( 0, 0 ),
-                          index.sibling( index.column(), index.row() + 1 ),
-                          QVector< int >( Qt::CheckStateRole ) );
+        // setSelected() above cascades the new check-state to every
+        // descendant (and re-derives ancestors' partially-checked
+        // state), but a dataChanged() range only ever covers sibling
+        // rows under a single parent -- it can't express "this whole
+        // subtree, at every depth, changed". Toggling a group with
+        // subgroups (e.g. Larch's "Extras" netinstall group) updates
+        // the underlying selection correctly but leaves the view
+        // showing stale checkboxes on the children. Emitting
+        // layoutChanged() forces the view to re-fetch everything;
+        // this tree is small enough that the blunt fix is fine.
+        emit layoutChanged();
     }
     return true;
 }
