@@ -63,11 +63,15 @@ QPushButton:default:hover {
  * can **not** be styled, since it has its own custom C++
  * delegate code. Sidebar colors themselves are set via
  * branding.desc's *style* section, not here.
+ *
+ * Deliberately NOT setting #mainApp's background-color here:
+ * a QSS rule that sets background-color without also setting
+ * color causes Qt's style-sheet cascade to take over color
+ * resolution for descendant widgets too, and without an
+ * explicit color they fall back to black text -- black-on-black
+ * on a dark background. The system's own dark Qt theme (qt6ct)
+ * already colors both background and text consistently; let it.
  */
-
-#mainApp {
-    background-color: #1e1e2e;
-}
 
 /*** Welcome module.
  *
