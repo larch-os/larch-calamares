@@ -1,0 +1,175 @@
+# Larch notes
+
+This is Larch's fork of Calamares: upstream code untouched, branding/config/
+modules changed for Larch. This file is the accumulated knowledge from
+building it — not a tutorial, a reference. Read this before touching
+anything below.
+
+## Remotes
+
+- `origin` = `git@github.com:larch-os/larch-calamares.git` (ours, push here)
+- `upstream` = `https://codeberg.org/Calamares/calamares.git` (real upstream)
+
+Do NOT use `github.com/calamares/calamares` as upstream — it's a stale
+mirror. It was missing `v3.4.0`/`v3.4.2` when `codeberg.org/Calamares/calamares`
+already had them. Confirmed by fetching both and comparing tags.
+
+Currently pinned to `v3.4.2` + our commits on `main`.
+
+## Staying in sync with upstream
+
+Two separate problems, not one:
+
+**Our commits reaching the built package** — already automatic. `PKGBUILD`'s
+`pkgver()` derives from `git describe`-style output (commit count + short
+hash), and `larch-base/scripts/build-local-repo.sh` does `git pull --ff-only`
+on this repo before every `makepkg`. Push to `main`, next ISO build picks it
+up. The only failure mode is a human forgetting to re-run that script before
+`mkarchiso` — it's not automatic on its own.
+
+**Upstream's commits reaching us** — manual, periodic:
+1. `git fetch upstream --tags`
+2. `git merge upstream/vX.Y.Z` (a real tag, not `upstream/main` — stay on
+   stable cuts). Merge, don't rebase — we're past the initial pin, rebasing
+   now would force-push over published history.
+3. Our diff against upstream is narrow: new files (branding/, larch-postinstall/,
+   PKGBUILD, this file) plus small edits to `unpackfs.conf`, `packages.conf`,
+   `partition.conf`, `settings.conf`, `shellprocess.conf`,
+   `netinstall/PackageModel.cpp`, and a dozen `data/images/*.svg` icons.
+   Conflicts, if any, will be in that list — nowhere else.
+4. Rebuild and smoke-test before pushing (see "Build" below). At minimum:
+   does it still compile, do our config keys still exist (upstream can
+   rename/remove config options between releases).
+
+No fixed cadence decided yet — pick one up when a specific fix/CVE is worth
+having, or check periodically. Not automated.
+
+## Build
+
+Runtime deps: `kcoreaddons kpmcore libpwquality qt6-declarative qt6-svg yaml-cpp`
+Build deps: `extra-cmake-modules libglvnd ninja qt6-tools qt6-translations git boost cmake`
+
+```sh
+cmake -S . -B build -G Ninja -DWITH_QT6=ON
+cmake --build build
+```
+
+Two real gotchas, both cost real time to find:
+
+1. **Config files only get copied into `build/` at CMake *configure* time,
+   not build time.** Editing a `.conf`, `settings.conf`, or `branding.desc`
+   and running `cmake --build build` alone does nothing — you'll test
+   against stale content. Always `cmake -S . -B build` again first after
+   editing any config file. `ninja: no work to do` with no actual rebuild is
+   the tell.
+2. **Modules are separate plugin targets, not linked into `calamares`.**
+   `cmake --build build --target calamares` only rebuilds the main binary +
+   libcalamares/libcalamaresui — it will NOT recompile a module you just
+   edited (e.g. `PackageModel.cpp`). Build the default target
+   (`cmake --build build`, no `--target`) to actually recompile modules.
+
+## Running it (`-d` debug mode)
+
+Must run from the build dir — debug mode resolves config/branding relative
+to the current working directory:
+
+```sh
+cd build
+QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
+```
+
+- `QT_QPA_PLATFORMTHEME=qt6ct` — without it, Qt falls back to its default
+  light palette regardless of branding.desc's colors. niri sets this in its
+  own `environment {}` block for processes it spawns directly, but a
+  process launched from an unrelated shell (a different session, or
+  `qemu-guest-agent`'s `guest-exec`) won't have it.
+- `HOME=/root` (or whatever's actually correct) — needed for the same
+  reason if launching via a spawn mechanism that doesn't set it (confirmed:
+  `qemu-guest-agent`'s `guest-exec` spawns with `HOME` completely empty).
+  Without it, qt6ct can't find `~/.config/qt6ct/qt6ct.conf` even if the file
+  exists and the platform theme is set correctly.
+- Real disk/partition testing needs real root + a real block device — not
+  meaningful on a bare desktop session. Use a VM with an attached disk.
+
+## Architecture decisions (and why)
+
+- **Base install = `unpackfs` unsquashing larch-base's actual live squashfs**
+  (`/run/archiso/bootmnt/larch/x86_64/airootfs.sfs`, confirmed by mounting a
+  built ISO and checking `/usr/share/archiso`'s own boot-hook conventions),
+  not a pacman/netinstall-based base install. `larch-base`'s `mkarchiso`
+  build pacstraps packages then copies the `airootfs/` overlay on top, so
+  this one unsquash carries packages + all our dotfiles/config together.
+- **`packages` module (pacman backend) is for optional extras only**
+  (docker/incus/chromium, picked via the `netinstall` page), never the base
+  system. `skip_if_no_internet: true` — these are optional, missing network
+  shouldn't fail the whole install.
+- **Swap = zram only.** `partition.conf`'s `userSwapChoices: [none]` — no
+  swap UI at all. Actual zram setup (package + `/etc/systemd/zram-generator.conf`)
+  lives in `larch-base`'s airootfs, not here; it carries over via the
+  squashfs like everything else.
+- **Encryption defaults on, opt-out.** `preCheckEncryption: true`. Automated
+  LUKS only encrypts root, never `/boot`/`/boot/efi`, so GRUB never needs
+  `GRUB_ENABLE_CRYPTODISK` — confirmed via `initcpiocfg/main.py`, which
+  auto-detects `luksMapperName` on root and adds the `encrypt` mkinitcpio
+  hook with no extra config needed.
+- **Bootloader = GRUB only**, no theme config here. `bootloader.conf`'s
+  `efiBootLoader: "grub"` is the only entry (not a fallback list). The
+  actual GRUB theme (`/etc/default/grub`, `/boot/grub/themes/larch/`) lives
+  in `larch-base`'s airootfs — `grub-mkconfig` just reads whatever's
+  already in the target, so it comes along for free via the squashfs.
+- **`larch-postinstall`** (our own module) exists because `packages.conf`'s
+  `pre-script`/`post-script` can't do per-package setup (enable a service,
+  add the installed user to a group): they're `str.split(" ")`'d with no
+  variable substitution and no username access — can't run compound shell
+  commands or know who the target user is. `larch-postinstall` reads
+  globalStorage's `packageOperations` key directly (same key `netinstall`
+  writes) instead.
+
+## Bugs already found and fixed (don't reintroduce these)
+
+- **QSS `background-color` without `color`.** `stylesheet.qss` had
+  `#mainApp { background-color: #1e1e2e; }` with no `color:`. Any QSS rule
+  on a widget makes Qt's style-sheet cascade take over color resolution for
+  its descendants too — without an explicit `color`, text falls back to
+  black. Black text on a dark background is invisible. If you add container
+  background rules, always pair with an explicit `color`, or don't set
+  background at all and trust the system palette.
+- **`PackageModel::setData()`'s `dataChanged()` doesn't cover nested rows.**
+  Toggling a group checkbox (e.g. `netinstall`'s "Extras" group) correctly
+  updates the underlying selection via `setSelected()`'s cascade, but the
+  emitted `dataChanged()` range only covers sibling rows at the *same tree
+  level* as the clicked item — nested child rows never get told to
+  repaint, so they show stale checkboxes despite correct underlying state.
+  Fixed with `emit layoutChanged()` instead (fine for a tree this small).
+- **Bundled `data/images/*.svg` icons are dark, for a light background.**
+  `#4d4d4d`, `#31363b`, `#3b3a40` recur across the partition/welcome icons
+  as the "structural" color — invisible against a dark theme. Recolored the
+  ones we ship to `#cdd6f4`. If upstream adds new icons or a merge brings
+  more of these in, check `grep -oE 'fill:#[0-9a-fA-F]{3,6}' data/images/*.svg`
+  for the same pattern.
+- **GRUB `boot_menu`'s `item_color`/`selected_item_color` are TEXT colors,
+  not backgrounds.** No plain solid highlight-box property exists for the
+  selected item — only the pixmap-based `selected_item_pixmap_style`, which
+  needs real 9-patch image assets we don't have. Setting
+  `selected_item_color` to a dark color (intending it as a background) would
+  have made the selected item's text invisible. Use a bright accent color
+  for selected-item text instead, or build real pixmap assets later.
+- **`INSTALL_CONFIG` CMake option defaults `OFF`.** Without
+  `-DINSTALL_CONFIG=ON`, none of our module `.conf` files or the top-level
+  `settings.conf` get installed by `cmake --install` / packaging — branding
+  installs unconditionally (different code path), configs do not. Already
+  set in `PKGBUILD`; don't drop it.
+
+## Packaging
+
+`PKGBUILD` (repo root) builds this repo directly via a git source, not a
+release tarball. Based on the real AUR `calamares` PKGBUILD's `build()`/
+`package()` (same upstream version, 3.4.2, so its CMake flags apply), with
+one deliberate difference: it does NOT skip the `initramfs`/`initramfscfg`
+modules like that PKGBUILD does, because our `settings.conf` actually uses
+`initramfs`.
+
+Built into `larch-base`'s local pacman repo by
+`larch-base/scripts/build-local-repo.sh`, alongside the AUR-only packages.
+Package name is `larch-calamares`; it `provides`/`conflicts` `calamares` so
+it's a drop-in. Listed in `larch-base/archiso/releng/packages.x86_64`.
