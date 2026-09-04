@@ -124,6 +124,20 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   commands or know who the target user is. `larch-postinstall` reads
   globalStorage's `packageOperations` key directly (same key `netinstall`
   writes) instead.
+- **`larch-preinstall`** (our own module, runs right after `unpackfs`)
+  strips two live-boot-only files that `unpackfs` otherwise carries
+  straight into the install target unchanged: `/etc/mkinitcpio.conf.d/
+  archiso.conf` (overrides HOOKS to archiso's live-only list — a
+  `.conf.d` drop-in *replaces* HOOKS, doesn't merge, so it silently wins
+  over whatever `initcpiocfg` correctly computes, e.g. dropping the
+  `encrypt` hook on a LUKS install even though `initcpiocfg` added it)
+  and `/etc/mkinitcpio.d/linux.preset` (archiso's own preset —
+  `PRESETS=('archiso')`, no `default`/`fallback` at all, and it points
+  `mkinitcpio -P` at `archiso.conf` directly). Left in place, the
+  target boots into GRUB fine and then can't unlock/find root — this
+  is almost certainly what "installer failing around grub and
+  mkinitcpio" on real hardware actually was. Must run before
+  `initcpiocfg`/`initcpio` regenerate the initramfs, obviously.
 
 ## Bugs already found and fixed (don't reintroduce these)
 

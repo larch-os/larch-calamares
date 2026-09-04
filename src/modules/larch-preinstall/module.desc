@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: no
+# SPDX-License-Identifier: CC0-1.0
+#
+# Larch-specific: larch-base's squashfs is also a live-boot medium, so
+# it ships mkinitcpio config for THAT (archiso hooks, an "archiso"-only
+# preset). unpackfs carries those files into the install target
+# unchanged. Left alone, initcpio/initcpiocfg regenerate the initramfs
+# using that live-only config instead of a normal installed-system one
+# -- this runs before those to clean it up first.
+---
+type:       "job"
+name:       "larch-preinstall"
+interface:  "python"
+script:     "main.py"
