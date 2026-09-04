@@ -3,10 +3,11 @@
 #
 # Larch-specific: larch-base's squashfs is also a live-boot medium, so
 # it ships mkinitcpio config for THAT (archiso hooks, an "archiso"-only
-# preset). unpackfs carries those files into the install target
-# unchanged. Left alone, initcpio/initcpiocfg regenerate the initramfs
-# using that live-only config instead of a normal installed-system one
-# -- this runs before those to clean it up first.
+# preset) and no kernel at all (moved out to the ISO's own boot media
+# before the squashfs is built). unpackfs carries the former into the
+# install target unchanged and never provides the latter. This runs
+# right after unpackfs to clean up the mkinitcpio config and copy the
+# kernel back in, before initcpiocfg/initcpio regenerate the initramfs.
 ---
 type:       "job"
 name:       "larch-preinstall"

@@ -27,11 +27,27 @@
 #       override directly (archiso_config=). Replaced here with the
 #       standard linux package preset (default + fallback).
 #
+#   /boot is empty in the squashfs entirely.
+#       mkarchiso pacstraps the linux package (which does put a kernel
+#       at /boot/vmlinuz-linux), but then moves the kernel/initramfs
+#       out to the ISO's own boot media before building the squashfs
+#       -- confirmed by mounting a built ISO: airootfs.sfs's /boot is
+#       genuinely empty, while larch/boot/x86_64/vmlinuz-linux exists
+#       on the ISO itself, outside the squashfs. This avoids shipping
+#       the kernel twice (once for the bootloader to load directly,
+#       once compressed inside the squashfs) but means unpackfs alone
+#       never gives the install target a kernel. mkinitcpio then fails
+#       outright: "-k /boot/vmlinuz-linux must be readable". Fixed by
+#       copying it back in from the live boot media, which is mounted
+#       at /run/archiso/bootmnt/ for the duration of the live session
+#       (same path convention as unpackfs.conf's own source).
+#
 # Must run after unpackfs (needs the target filesystem to exist) and
 # before initcpiocfg/initcpio (the initramfs must be built with clean
 # config, not this).
 
 import os
+import shutil
 
 import libcalamares
 
@@ -54,6 +70,9 @@ fallback_options="-S autodetect"
 """
 
 
+BOOT_MEDIA_DIR = "/run/archiso/bootmnt/larch/boot/x86_64"
+
+
 def pretty_name():
     return _("Cleaning up live-medium-only boot configuration.")
 
@@ -70,5 +89,18 @@ def run():
     with open(linux_preset, "w") as f:
         f.write(STANDARD_LINUX_PRESET)
     libcalamares.utils.debug("Restored standard default/fallback {}".format(linux_preset))
+
+    for name in ("vmlinuz-linux", "initramfs-linux.img"):
+        source = os.path.join(BOOT_MEDIA_DIR, name)
+        target = os.path.join(root_mount_point, "boot", name)
+        if not os.path.exists(source):
+            return (
+                _("Boot media not found"),
+                _("Expected the live kernel at <pre>{}</pre> but it doesn't "
+                  "exist. Are you running from the actual ISO (not calamares "
+                  "-d on a bare desktop)?").format(source),
+            )
+        shutil.copy(source, target)
+        libcalamares.utils.debug("Copied {} -> {}".format(source, target))
 
     return None

@@ -139,6 +139,17 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   mkinitcpio" on real hardware actually was. Must run before
   `initcpiocfg`/`initcpio` regenerate the initramfs, obviously.
 
+  Also copies the kernel itself back in: `/boot` is completely empty
+  in the squashfs (confirmed by mounting a built ISO and checking) --
+  mkarchiso moves the kernel/initramfs out to the ISO's own boot media
+  (`larch/boot/x86_64/`) before building the squashfs, so it isn't
+  duplicated once compressed-in-squashfs and once for the bootloader
+  to load directly. Without this, `mkinitcpio` fails outright:
+  `-k /boot/vmlinuz-linux must be readable`. Copied from
+  `/run/archiso/bootmnt/larch/boot/x86_64/` (the live boot media,
+  mounted there for the session) -- same path convention as
+  `unpackfs.conf`'s own source.
+
 ## Bugs already found and fixed (don't reintroduce these)
 
 - **QSS `background-color` without `color`.** `stylesheet.qss` had
