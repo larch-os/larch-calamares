@@ -195,6 +195,17 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   it does) — removed from the sequence, and re-added to `PKGBUILD`'s
   `SKIP_MODULES` to match the AUR reference now that we don't use it.
 
+- **`passwordRequirements.libpwquality` enforces a de facto ~8-char
+  minimum even with `minlen=0`/`minclass=0`.** `CheckPWQuality.cpp`
+  hardcodes a rejection threshold of 40 on libpwquality's *quality
+  score* (entropy-based), independent of the individual
+  minlen/minclass/etc. settings -- those only disable specific hard
+  gates, not the overall score computation, and short passwords can't
+  reach a score of 40 no matter how they're configured. `minLength: -1`
+  alone does nothing to fix this if a `libpwquality:` key is still
+  present. Fix: omit the `libpwquality` key from `passwordRequirements`
+  entirely, don't just zero its sub-options.
+
 ## Packaging
 
 `PKGBUILD` (repo root) builds this repo directly via a git source, not a
