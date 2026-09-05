@@ -145,6 +145,26 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   commands or know who the target user is. `larch-postinstall` reads
   globalStorage's `packageOperations` key directly (same key `netinstall`
   writes) instead.
+
+  Also seeds the installer-created user's zsh/niri/noctalia config,
+  copied straight from the live "larch" user's home (skipping the bash
+  files, since `useradd -m` already gave the new user those from
+  `/etc/skel`), with `larch-base`'s `install-overrides/` (shipped in the
+  squashfs at `/usr/share/larch/install-overrides/`) layered on top for
+  anything that has to differ once Calamares itself is gone from the
+  installed system — e.g. noctalia's bar losing the `install_larch`
+  button. Deliberately **not** done via `/etc/skel`: skel stays plain
+  Arch default (just whatever `bash`/`screen` put there), since Larch's
+  setup is only for the live user and this one installer-created user,
+  not every future `useradd`. (Earlier iteration populated `/etc/skel`
+  directly from `/home/larch` in `build-local-repo.sh` — reverted; it
+  worked, but affected any future manually-`useradd`'d account too,
+  which wasn't the intent, and it also had a real bug: noctalia's
+  seeded `settings.toml` still hardcoded `/home/larch/...` paths, found
+  via a real install where the new user's wallpaper didn't show.)
+  `packages.conf` also `try_remove`s `larch-calamares` itself — no
+  reason to keep an installer around post-install — and `users.conf`'s
+  `user.shell` is `/usr/bin/zsh`, not the Calamares default `/bin/bash`.
 - **`larch-preinstall`** (our own module, runs right after `unpackfs`)
   strips two live-boot-only files that `unpackfs` otherwise carries
   straight into the install target unchanged: `/etc/mkinitcpio.conf.d/
