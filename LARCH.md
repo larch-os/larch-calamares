@@ -108,10 +108,18 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   lives in `larch-base`'s airootfs, not here; it carries over via the
   squashfs like everything else.
 - **Encryption defaults on, opt-out.** `preCheckEncryption: true`. Automated
-  LUKS only encrypts root, never `/boot`/`/boot/efi`, so GRUB never needs
-  `GRUB_ENABLE_CRYPTODISK` — confirmed via `initcpiocfg/main.py`, which
+  LUKS only encrypts root, never `/boot/efi` (the ESP) — but there's no
+  separate `/boot` partition either, so `/boot` itself (grub.cfg, kernel,
+  initramfs) lives inside the encrypted root. GRUB's EFI binary therefore
+  *does* need `GRUB_ENABLE_CRYPTODISK=y` (set in `larch-base`'s
+  `/etc/default/grub`) to unlock root and read `/boot` at all — without
+  it, `grub-install` fails outright: "attempt to install to encrypted disk
+  without cryptodisk enabled" (found via a real install). Harmless on
+  non-encrypted installs, just adds unused modules. Previously assumed
+  not needed since the ESP itself stays unencrypted — wrong, the ESP
+  isn't where `/boot` lives. `initcpiocfg/main.py` separately
   auto-detects `luksMapperName` on root and adds the `encrypt` mkinitcpio
-  hook with no extra config needed.
+  hook with no extra config needed — that part was correct.
 - **Bootloader = GRUB only**, no theme config here. `bootloader.conf`'s
   `efiBootLoader: "grub"` is the only entry (not a fallback list). The
   actual GRUB theme (`/etc/default/grub`, `/boot/grub/themes/larch/`) lives
