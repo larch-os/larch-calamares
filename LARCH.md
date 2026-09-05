@@ -184,15 +184,24 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   `settings.conf` get installed by `cmake --install` / packaging — branding
   installs unconditionally (different code path), configs do not. Already
   set in `PKGBUILD`; don't drop it.
+- **`initramfs` module is Debian, not Arch.** `InitramfsJob.cpp` hardcodes
+  a call to `update-initramfs` (Debian's `initramfs-tools` command) —
+  doesn't exist on Arch at all. It's a distro-specific alternative to what
+  `initcpio` already does correctly for us via `mkinitcpio`, not something
+  to run alongside it. Confirmed via a real install: `initcpio` succeeded
+  earlier in the same sequence, then `initramfs` failed with exit 127,
+  "No such file or directory". Was in our `settings.conf` sequence by
+  mistake (I saw it listed and assumed it was needed without checking what
+  it does) — removed from the sequence, and re-added to `PKGBUILD`'s
+  `SKIP_MODULES` to match the AUR reference now that we don't use it.
 
 ## Packaging
 
 `PKGBUILD` (repo root) builds this repo directly via a git source, not a
 release tarball. Based on the real AUR `calamares` PKGBUILD's `build()`/
-`package()` (same upstream version, 3.4.2, so its CMake flags apply), with
-one deliberate difference: it does NOT skip the `initramfs`/`initramfscfg`
-modules like that PKGBUILD does, because our `settings.conf` actually uses
-`initramfs`.
+`package()` (same upstream version, 3.4.2, so its CMake flags apply) --
+including its `SKIP_MODULES` list unchanged (see the `initramfs` bug
+above for why `initramfs`/`initramfscfg` are in there).
 
 Built into `larch-base`'s local pacman repo by
 `larch-base/scripts/build-local-repo.sh`, alongside the AUR-only packages.

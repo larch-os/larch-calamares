@@ -4,9 +4,7 @@
 # larch-postinstall module) rather than upstream. Based on the AUR
 # calamares PKGBUILD's build()/package() invocation (same upstream
 # version, 3.4.2, so the same CMake flags apply) -- adapted to build
-# from this git repo instead of a release tarball, and NOT skipping
-# initramfs/initramfscfg like that PKGBUILD does, since our own
-# settings.conf actually uses the initramfs module.
+# from this git repo instead of a release tarball.
 
 pkgname=larch-calamares
 pkgver=3.4.2.r0.g0000000
@@ -45,9 +43,10 @@ pkgver() {
 }
 
 build() {
-  # Unlike the AUR calamares PKGBUILD, NOT skipping initramfs/
-  # initramfscfg -- settings.conf's exec sequence actually uses the
-  # initramfs module.
+  # initramfs/initramfscfg is Debian's update-initramfs, not Arch --
+  # initcpio/initcpiocfg (not skipped, used by our sequence) already
+  # handle this via mkinitcpio. Matches the AUR calamares PKGBUILD's
+  # own skip list here.
   local _skip_modules=(
     dracut
     dracutlukscfg
@@ -55,6 +54,8 @@ build() {
     dummyprocess
     dummypython
     dummypythonqt
+    initramfs
+    initramfscfg
     interactiveterminal
     packagechooser
     packagechooserq
