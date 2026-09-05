@@ -107,19 +107,32 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   swap UI at all. Actual zram setup (package + `/etc/systemd/zram-generator.conf`)
   lives in `larch-base`'s airootfs, not here; it carries over via the
   squashfs like everything else.
-- **Encryption defaults on, opt-out.** `preCheckEncryption: true`. Automated
-  LUKS only encrypts root, never `/boot/efi` (the ESP) — but there's no
-  separate `/boot` partition either, so `/boot` itself (grub.cfg, kernel,
-  initramfs) lives inside the encrypted root. GRUB's EFI binary therefore
-  *does* need `GRUB_ENABLE_CRYPTODISK=y` (set in `larch-base`'s
-  `/etc/default/grub`) to unlock root and read `/boot` at all — without
-  it, `grub-install` fails outright: "attempt to install to encrypted disk
-  without cryptodisk enabled" (found via a real install). Harmless on
-  non-encrypted installs, just adds unused modules. Previously assumed
-  not needed since the ESP itself stays unencrypted — wrong, the ESP
-  isn't where `/boot` lives. `initcpiocfg/main.py` separately
-  auto-detects `luksMapperName` on root and adds the `encrypt` mkinitcpio
-  hook with no extra config needed — that part was correct.
+- **Encryption defaults on, opt-out.** `preCheckEncryption: true`.
+  `partition.conf`'s `partitionLayout` gives `/boot` its own partition
+  with `noEncrypt: true`, kept separate from the LUKS root, so GRUB never
+  needs `GRUB_ENABLE_CRYPTODISK` to read it. `larch-base`'s
+  `/etc/default/grub` deliberately does *not* set that key statically —
+  `grubcfg` (see below) computes it per-install and patches the file in
+  place. `initcpiocfg/main.py` auto-detects `luksMapperName` on root and
+  adds the `encrypt` mkinitcpio hook.
+
+  Earlier iteration had no `partitionLayout` at all (single root
+  partition, ESP only), so `/boot` ended up *inside* the encrypted root.
+  `grub-install` failed outright then: "attempt to install to encrypted
+  disk without cryptodisk enabled". Setting `GRUB_ENABLE_CRYPTODISK=y`
+  statically fixed *that*, but uncovered the real bug one layer down: the
+  `encrypt` mkinitcpio hook had no `cryptdevice=` kernel parameter to act
+  on, because upstream's `grubcfg` module — which writes that parameter,
+  and which is the only thing that should ever set
+  `GRUB_ENABLE_CRYPTODISK` — was commented out in `settings.conf` (it's
+  been commented out since upstream's 2015 sample template, not something
+  we did). Without `cryptdevice=`, mkinitcpio just tried to mount root by
+  its raw filesystem UUID, which isn't visible until LUKS is unlocked:
+  "device not found" in an emergency shell, confirmed via a real boot
+  attempt. Fixed by uncommenting `grubcfg` (runs right before
+  `bootloader`) and switching to the separate-`/boot`-partition layout in
+  the same pass — `grubcfg` already has an `unencrypted_separate_boot`
+  check that does the right thing for either layout.
 - **Bootloader = GRUB only**, no theme config here. `bootloader.conf`'s
   `efiBootLoader: "grub"` is the only entry (not a fallback list). The
   actual GRUB theme (`/etc/default/grub`, `/boot/grub/themes/larch/`) lives
