@@ -42,6 +42,19 @@
 #       at /run/archiso/bootmnt/ for the duration of the live session
 #       (same path convention as unpackfs.conf's own source).
 #
+#   /etc/sddm.conf.d/00-larch.conf's [Autologin] section
+#       Autologin as the "larch" live user into niri -- convenient for
+#       the live session, wrong for the installed system (which has a
+#       real user set up by the users module and should show a login
+#       screen). Only the [Autologin] section is stripped; [General]
+#       and [Theme] (virtual keyboard, silent SDDM theme) are genuinely
+#       wanted on the installed system too, so the file itself stays.
+#
+#   /etc/systemd/system/getty@tty1.service.d/autologin.conf
+#       Autologin as root on the tty1 console -- also live-session-only
+#       convenience. Removed outright, no installed-system equivalent
+#       wanted.
+#
 # Must run after unpackfs (needs the target filesystem to exist) and
 # before initcpiocfg/initcpio (the initramfs must be built with clean
 # config, not this).
@@ -102,5 +115,26 @@ def run():
             )
         shutil.copy(source, target)
         libcalamares.utils.debug("Copied {} -> {}".format(source, target))
+
+    sddm_conf = os.path.join(root_mount_point, "etc/sddm.conf.d/00-larch.conf")
+    if os.path.exists(sddm_conf):
+        with open(sddm_conf) as f:
+            lines = f.readlines()
+        if "[Autologin]\n" in lines:
+            start = lines.index("[Autologin]\n")
+            end = start + 1
+            while end < len(lines) and not lines[end].startswith("["):
+                end += 1
+            del lines[start:end]
+            with open(sddm_conf, "w") as f:
+                f.writelines(lines)
+            libcalamares.utils.debug("Removed live-only [Autologin] section from {}".format(sddm_conf))
+
+    getty_autologin = os.path.join(
+        root_mount_point, "etc/systemd/system/getty@tty1.service.d/autologin.conf"
+    )
+    if os.path.exists(getty_autologin):
+        os.remove(getty_autologin)
+        libcalamares.utils.debug("Removed live-only {}".format(getty_autologin))
 
     return None

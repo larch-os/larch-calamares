@@ -171,6 +171,16 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   mounted there for the session) -- same path convention as
   `unpackfs.conf`'s own source.
 
+  Also strips two live-only autologin mechanisms that unpackfs
+  otherwise carries into the target unchanged: `00-larch.conf`'s
+  `[Autologin]` SDDM section (auto-logs into the "larch" live user --
+  wrong once a real user exists; only that section is stripped, the
+  rest of the file, e.g. the silent theme, is still wanted) and
+  `getty@tty1.service.d/autologin.conf` (root autologin on the tty1
+  console, removed outright, no installed-system equivalent wanted).
+  Found via a real install: the installed system dropped straight into
+  a desktop session with no login prompt, same as the live ISO.
+
 ## Bugs already found and fixed (don't reintroduce these)
 
 - **QSS `background-color` without `color`.** `stylesheet.qss` had
