@@ -19,7 +19,7 @@
 #
 # Also seeds the installer-created user's zsh/niri/noctalia config.
 # Deliberately not done via /etc/skel (which stays plain Arch default,
-# see larch-base's build-local-repo.sh) -- this is for the one user
+# see larch-base's prepare-iso.sh) -- this is for the one user
 # Calamares creates here, not every future `useradd`. Copied straight
 # from the live "larch" user's home, then install-overrides/ (shipped
 # in the squashfs alongside it) is layered on top for anything that

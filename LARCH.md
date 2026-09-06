@@ -22,7 +22,7 @@ Two separate problems, not one:
 
 **Our commits reaching the built package** — already automatic. `PKGBUILD`'s
 `pkgver()` derives from `git describe`-style output (commit count + short
-hash), and `larch-base/scripts/build-local-repo.sh` does `git pull --ff-only`
+hash), and `larch-base/scripts/prepare-iso.sh` does `git pull --ff-only`
 on this repo before every `makepkg`. Push to `main`, next ISO build picks it
 up. The only failure mode is a human forgetting to re-run that script before
 `mkarchiso` — it's not automatic on its own.
@@ -157,7 +157,7 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   Arch default (just whatever `bash`/`screen` put there), since Larch's
   setup is only for the live user and this one installer-created user,
   not every future `useradd`. (Earlier iteration populated `/etc/skel`
-  directly from `/home/larch` in `build-local-repo.sh` — reverted; it
+  directly from `/home/larch` in `prepare-iso.sh` — reverted; it
   worked, but affected any future manually-`useradd`'d account too,
   which wasn't the intent, and it also had a real bug: noctalia's
   seeded `settings.toml` still hardcoded `/home/larch/...` paths, found
@@ -266,6 +266,6 @@ including its `SKIP_MODULES` list unchanged (see the `initramfs` bug
 above for why `initramfs`/`initramfscfg` are in there).
 
 Built into `larch-base`'s local pacman repo by
-`larch-base/scripts/build-local-repo.sh`, alongside the AUR-only packages.
+`larch-base/scripts/prepare-iso.sh`, alongside the AUR-only packages.
 Package name is `larch-calamares`; it `provides`/`conflicts` `calamares` so
 it's a drop-in. Listed in `larch-base/archiso/releng/packages.x86_64`.
