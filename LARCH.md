@@ -149,8 +149,13 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   shouldn't fail the whole install.
 - **`netinstall` runs twice, as two separate module *instances*.** The
   plain `netinstall` instance (`netinstall.conf`, sidebar "Extra
-  Software") is per-package opt-in/opt-out extras (docker — `selected:
-  true`; incus, chromium — `selected: false`). A second instance,
+  Software") is per-package opt-in/opt-out extras (docker, Visual
+  Studio Code — `selected: true`; incus, chromium — `selected: false`).
+  Visual Studio Code means `visual-studio-code-bin`, AUR-only -- plain
+  `pacman` can't resolve it on its own, it only works because
+  `larch-base`'s `customize_airootfs.sh` sets up the Chaotic-AUR repo
+  (see that repo's `docs/session-context.md`), which carries a real
+  prebuilt binary for it. A second instance,
   `netinstall@larch-essentials` (`netinstall/larch-essentials.conf`,
   sidebar "Larch Essentials"), is Larch's own recommended tooling
   (chezmoi, pass, pika-backup, htop, btop, lazygit, uv, k3d-bin,
