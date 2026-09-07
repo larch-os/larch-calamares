@@ -106,6 +106,37 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   (docker/incus/chromium, picked via the `netinstall` page), never the base
   system. `skip_if_no_internet: true` — these are optional, missing network
   shouldn't fail the whole install.
+- **`netinstall` runs twice, as two separate module *instances*.** The
+  plain `netinstall` instance (`netinstall.conf`, sidebar "Extra
+  Software") is opt-in extras (docker/incus/chromium — `selected: false`).
+  A second instance, `netinstall@larch-essentials`
+  (`netinstall/larch-essentials.conf`, sidebar "Larch Essentials"), is
+  Larch's own recommended tooling (chezmoi, pass, pika-backup, htop,
+  btop, lazygit, uv, k3d-bin, kubectl, herdr-bin) — `selected: true`,
+  opt-out instead of opt-in. Both are declared in `settings.conf`'s
+  `instances:` section (a custom `id` needs an explicit `config:` key,
+  or it'd try to reuse `netinstall.conf`) and both appear in the
+  `sequence`. This reuses the *same* compiled `netinstall` plugin —
+  Calamares instantiates one `Config`/`ViewStep` per instance
+  (`ViewModule::loadSelf()` calls the plugin factory once per module
+  instance, then `setModuleInstanceKey()` stamps each with its own key)
+  — so the `NoInternet`/timeout fixes below apply to both automatically,
+  and each instance's selections land in `globalStorage`'s
+  `packageOperations` under its own `source` key
+  (`netinstall@netinstall` vs `netinstall@larch-essentials`), so they
+  don't clobber each other. No new C++ module needed for this — see the
+  git history for why a from-scratch plugin was considered and rejected
+  (this is functionally identical from the packages module's point of
+  view, and config-only changes are trivially editable when the
+  essentials list needs to grow or shrink later).
+  `packages.conf` used to `try_install` chezmoi/pass/pika-backup
+  unconditionally (no user choice at all) — moved into
+  `larch-essentials.conf` instead so they're visible and declinable,
+  same as any other extra.
+  paru-bin deliberately stays out of both instances — it lives in
+  `larch-base`'s `packages.x86_64` (live *and* installed, since that's
+  one shared squashfs), so it's usable to build AUR packages during the
+  install itself, not just after a reboot.
 - **Swap = zram only.** `partition.conf`'s `userSwapChoices: [none]` — no
   swap UI at all. Actual zram setup (package + `/etc/systemd/zram-generator.conf`)
   lives in `larch-base`'s airootfs, not here; it carries over via the
