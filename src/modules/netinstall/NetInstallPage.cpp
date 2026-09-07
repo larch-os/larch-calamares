@@ -34,7 +34,17 @@ NetInstallPage::NetInstallPage( Config* c, QWidget* parent )
     ui->setupUi( this );
     ui->groupswidget->header()->setSectionResizeMode( QHeaderView::ResizeToContents );
     ui->groupswidget->setModel( c->model() );
-    connect( c, &Config::statusChanged, ui->netinst_status, &QLabel::setText );
+    connect( c,
+             &Config::statusChanged,
+             [ ui = this->ui, c ]( const QString& status )
+             {
+                 ui->netinst_status->setText( status );
+                 // Larch: no internet means selections here won't actually
+                 // install (packages.conf's skip_if_no_internet skips the
+                 // whole packages job), so disable the tree rather than let
+                 // someone pick things that silently do nothing.
+                 ui->groupswidget->setEnabled( c->statusCode() != Config::Status::NoInternet );
+             } );
     connect( c,
              &Config::titleLabelChanged,
              [ ui = this->ui ]( const QString title )

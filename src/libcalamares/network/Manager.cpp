@@ -224,7 +224,22 @@ Manager::Private::checkHasInternet()
     do
     {
         // Start by pinging the same one as last time
-        m_hasInternet = ::synchronousPing( threadNAM, m_hasInternetUrls.at( m_lastCheckedUrlIndex ), RequestOptions() );
+        //
+        // Larch: RequestOptions() (the default) has no timeout at all
+        // (m_timeout(-1), hasTimeout() requires > 0) -- synchronousPing()
+        // blocks the calling QtConcurrent worker on a local QEventLoop
+        // until the OS-level TCP connect gives up, which on a real but
+        // unreachable/firewalled network can take 60s+ per URL, not "no
+        // response". Since this check runs once per RequirementsChecker
+        // module and every module's future must finish before the welcome
+        // page's spinner clears (see RequirementsChecker::finished()),
+        // an unbounded wait here freezes the welcome page indefinitely,
+        // even though "internet" isn't in welcome.conf's required list --
+        // Larch explicitly supports offline installs, so this must resolve
+        // quickly either way. A firm timeout matches netinstall's own
+        // LoaderQueue.cpp pattern for the same Manager API.
+        m_hasInternet = ::synchronousPing(
+            threadNAM, m_hasInternetUrls.at( m_lastCheckedUrlIndex ), RequestOptions( RequestOptions::Flags(), std::chrono::seconds( 8 ) ) );
         // if it's not responding, **then** move on to the next one,
         // and wrap around if needed
         if ( !m_hasInternet )

@@ -59,6 +59,9 @@ Config::status() const
         return tr( "Network Installation. (Disabled: Unable to fetch package lists, check your network connection)" );
     case Status::FailedNoData:
         return tr( "Network Installation. (Disabled: No package list)" );
+    case Status::NoInternet:
+        return tr( "Network Installation. (Disabled: no internet connection detected -- "
+                    "selections here won't actually install)" );
     }
     __builtin_unreachable();
 }
@@ -68,6 +71,18 @@ Config::setStatus( Status s )
 {
     m_status = s;
     emit statusChanged( status() );
+}
+
+void
+Config::checkInternet()
+{
+    if ( m_status != Status::Ok && m_status != Status::NoInternet )
+    {
+        return;  // Some other real failure is already showing; don't clobber it.
+    }
+
+    Calamares::Network::Manager network;
+    setStatus( network.hasInternet() ? Status::Ok : Status::NoInternet );
 }
 
 QString

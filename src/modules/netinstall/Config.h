@@ -48,7 +48,16 @@ public:
         FailedInternalError,
         FailedNetworkError,
         FailedBadData,
-        FailedNoData
+        FailedNoData,
+        // Larch: distinct from FailedNetworkError, which means the
+        // *group list itself* failed to load over the network. This
+        // groupsUrl is "local" (no network needed to show the page at
+        // all), but the packages a user picks here still need real
+        // network access to actually install later -- packages.conf's
+        // skip_if_no_internet silently skips the whole packages job
+        // offline, so without this, a selection here just silently
+        // never installs, with no warning at all.
+        NoInternet
     };
 
     /// Human-readable, translated representation of the status
@@ -56,6 +65,16 @@ public:
     /// Internal code for the status
     Status statusCode() const { return m_status; }
     void setStatus( Status s );
+
+    /** @brief Re-checks internet connectivity and updates status accordingly.
+     *
+     * Call each time this page becomes active, not just once at startup --
+     * connectivity may have changed since an earlier page (e.g. welcome)
+     * checked it. Only overrides status when it's currently Ok or
+     * NoInternet, so it won't clobber some other real failure (bad
+     * configuration, bad data, etc).
+     */
+    void checkInternet();
 
     bool required() const { return m_required; }
     void setRequired( bool r ) { m_required = r; }

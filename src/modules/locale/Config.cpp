@@ -558,7 +558,16 @@ Config::startGeoIP()
     if ( m_geoip && m_geoip->isValid() )
     {
         Calamares::Network::Manager network;
-        if ( network.hasInternet() || network.synchronousPing( m_geoip->url() ) )
+        // Larch: this runs synchronously on the calling thread (modulesLoaded
+        // is on the GUI thread), and the default RequestOptions() has no
+        // timeout at all -- an unreachable/firewalled network can hang here
+        // for 60s+, freezing the *entire* installer UI, not just this page.
+        // GeoIP is cosmetic (pre-selects a timezone pin), not worth an
+        // unbounded wait; see network/Manager.cpp's checkHasInternet() for
+        // the same bug on the welcome page's internet check.
+        using Calamares::Network::RequestOptions;
+        if ( network.hasInternet()
+             || network.synchronousPing( m_geoip->url(), RequestOptions( RequestOptions::Flags(), std::chrono::seconds( 8 ) ) ) )
         {
             using Watcher = QFutureWatcher< Calamares::GeoIP::RegionZonePair >;
             m_geoipWatcher = std::make_unique< Watcher >();

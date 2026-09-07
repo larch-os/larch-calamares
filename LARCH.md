@@ -35,8 +35,11 @@ up. The only failure mode is a human forgetting to re-run that script before
 3. Our diff against upstream is narrow: new files (branding/, larch-postinstall/,
    PKGBUILD, this file) plus small edits to `unpackfs.conf`, `packages.conf`,
    `partition.conf`, `settings.conf`, `shellprocess.conf`,
-   `netinstall/PackageModel.cpp`, and a dozen `data/images/*.svg` icons.
-   Conflicts, if any, will be in that list — nowhere else.
+   `netinstall/PackageModel.cpp`, `netinstall/Config.{h,cpp}`,
+   `netinstall/NetInstallPage.cpp`, `netinstall/NetInstallViewStep.cpp`,
+   `libcalamares/network/Manager.cpp`, `locale/Config.cpp`, and a dozen
+   `data/images/*.svg` icons. Conflicts, if any, will be in that list —
+   nowhere else.
 4. Rebuild and smoke-test before pushing (see "Build" below). At minimum:
    does it still compile, do our config keys still exist (upstream can
    rename/remove config options between releases).
@@ -256,6 +259,46 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   alone does nothing to fix this if a `libpwquality:` key is still
   present. Fix: omit the `libpwquality` key from `passwordRequirements`
   entirely, don't just zero its sub-options.
+
+- **Two `synchronousPing()` calls have no timeout, freezing the
+  installer on a real but unreachable network** (not "no network at
+  all", which fails fast) -- a genuine problem since Larch explicitly
+  supports offline installs. `RequestOptions()`'s default constructor
+  sets `m_timeout(-1)`, and `hasTimeout()` requires `> 0`, so no timer
+  ever gets armed; the call blocks on a local `QEventLoop::exec()`
+  until the OS-level TCP connect gives up (60s+, sometimes much
+  longer). Two call sites hit this:
+    - `libcalamares/network/Manager.cpp`'s `checkHasInternet()` (the
+      welcome page's requirements check). `internet` isn't in
+      `welcome.conf`'s `required` list, so this doesn't block the Next
+      button once it resolves -- but it freezes the *entire welcome
+      page* (a "Gathering system information…" spinner that never
+      clears) until it does, which reads as "the installer doesn't
+      proceed" even though, config-wise, it should have moved on
+      immediately.
+    - `locale/Config.cpp`'s `startGeoIP()`, worse: this one runs
+      synchronously on the GUI thread (not a `QtConcurrent` worker),
+      so a hang here freezes the *whole installer UI*, for a GeoIP
+      timezone lookup that's purely cosmetic.
+  Fixed by passing an explicit `RequestOptions( RequestOptions::Flags(), std::chrono::seconds( 8 ) )`
+  at both call sites, matching the pattern `netinstall/LoaderQueue.cpp`
+  already used for its own (already-async, already fine) group-list
+  fetch.
+
+- **Netinstall's package selections silently don't install when
+  there's no internet, with no warning at all.** `groupsUrl: local`
+  means the netinstall *page* needs no network to display groups, but
+  the packages a user picks there still need real network access to
+  actually install later -- `packages.conf`'s `skip_if_no_internet`
+  silently skips the *entire* packages job when offline, extras
+  selection included. Fixed with a new `Config::Status::NoInternet`
+  (distinct from `FailedNetworkError`, which is about the group *list*
+  failing to load, not this), set by a new `Config::checkInternet()`
+  called from `NetInstallViewStep::onActivate()` every time the page
+  is shown (not just once at startup -- connectivity can change while
+  the user is on an earlier page). `NetInstallPage.cpp` disables
+  `groupswidget` whenever that status is active, alongside the
+  existing status-label text.
 
 ## Packaging
 

@@ -115,6 +115,9 @@ NetInstallViewStep::jobs() const
 void
 NetInstallViewStep::onActivate()
 {
+    // Larch: re-check each time the page is shown, not just once at
+    // startup -- connectivity may have changed since welcome's own check.
+    m_config.checkInternet();
     m_widget->onActivate();
 }
 
