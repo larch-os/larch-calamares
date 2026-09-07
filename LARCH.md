@@ -32,15 +32,11 @@ up. The only failure mode is a human forgetting to re-run that script before
 2. `git merge upstream/vX.Y.Z` (a real tag, not `upstream/main` — stay on
    stable cuts). Merge, don't rebase — we're past the initial pin, rebasing
    now would force-push over published history.
-3. Our diff against upstream is narrow: new files (branding/, larch-postinstall/,
-   PKGBUILD, this file) plus small edits to `unpackfs.conf`, `packages.conf`,
-   `partition.conf`, `settings.conf`, `shellprocess.conf`,
-   `netinstall/PackageModel.cpp`, `netinstall/Config.{h,cpp}`,
-   `netinstall/NetInstallPage.cpp`, `netinstall/NetInstallViewStep.cpp`,
-   `libcalamares/network/Manager.cpp`, `locale/Config.cpp`,
-   `displaymanager/displaymanager.conf`, `displaymanager/main.py`, and a
-   dozen `data/images/*.svg` icons. Conflicts, if any, will be in that
-   list — nowhere else.
+3. Our diff against upstream is narrow — see `UPSTREAM_DIFF.md` for the
+   full, current, file-by-file list (regenerate/verify it with
+   `git diff --stat v3.4.2...HEAD` rather than trust it blindly, since
+   it's a snapshot maintained by hand). Conflicts, if any, will be
+   somewhere in that list — nowhere else.
 4. Rebuild and smoke-test before pushing (see "Build" below). At minimum:
    does it still compile, do our config keys still exist (upstream can
    rename/remove config options between releases).
