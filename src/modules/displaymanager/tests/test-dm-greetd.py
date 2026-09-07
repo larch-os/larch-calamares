@@ -31,3 +31,20 @@ d.set_autologin("d", True, default_desktop_environment)
 # .. and again (this time checks load/save)
 d.set_autologin("d", True, default_desktop_environment)
 d.set_autologin("d", True, default_desktop_environment)
+
+# Larch: with no greeter binaries present, set_autologin() should have
+# fallen through to the agreety default.
+with open("/tmp/etc/greetd/config.toml") as f:
+    written = toml.load(f)
+assert "agreety" in written["default_session"]["command"]
+
+# Larch: regreet + cage present -> the regreet branch should be picked,
+# not gtkgreet/tuigreet/ddlm/agreety.
+os.makedirs("/tmp/usr/bin", exist_ok=True)
+for binary in ("regreet", "cage"):
+    open(os.path.join("/tmp/usr/bin", binary), "a").close()
+
+d.set_autologin("d", True, default_desktop_environment)
+with open("/tmp/etc/greetd/config.toml") as f:
+    written = toml.load(f)
+assert "regreet" in written["default_session"]["command"]

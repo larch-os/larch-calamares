@@ -914,7 +914,17 @@ class DMgreetd(DisplayManager):
         self.config_load()
 
         de_command = default_desktop_environment.executable
-        if os.path.exists(self.os_path("usr/bin/gtkgreet")) and os.path.exists(self.os_path("usr/bin/cage")):
+        # Larch: ReGreet, checked first since it's the more full-featured
+        # option (background image + CSS theming, see
+        # larch-base/archiso/releng/airootfs/etc/greetd/regreet.{toml,css}).
+        # Not upstream -- Calamares has no branch for regreet at all.
+        # No greeter_css_location appended here (unlike the gtkgreet branch
+        # below): regreet has no CSS CLI flag, it auto-loads regreet.css by
+        # directory convention instead. Command per ReGreet's own
+        # documented cage example.
+        if os.path.exists(self.os_path("usr/bin/regreet")) and os.path.exists(self.os_path("usr/bin/cage")):
+            self.config_data['default_session']['command'] = "dbus-run-session cage -s -mlast -d -- regreet"
+        elif os.path.exists(self.os_path("usr/bin/gtkgreet")) and os.path.exists(self.os_path("usr/bin/cage")):
             self.config_data['default_session']['command'] = "cage -d -s -- gtkgreet"
             if self.greeter_css_location:
                 self.config_data['default_session']['command'] += f" -s {self.greeter_css_location}"

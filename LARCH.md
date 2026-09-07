@@ -37,9 +37,10 @@ up. The only failure mode is a human forgetting to re-run that script before
    `partition.conf`, `settings.conf`, `shellprocess.conf`,
    `netinstall/PackageModel.cpp`, `netinstall/Config.{h,cpp}`,
    `netinstall/NetInstallPage.cpp`, `netinstall/NetInstallViewStep.cpp`,
-   `libcalamares/network/Manager.cpp`, `locale/Config.cpp`, and a dozen
-   `data/images/*.svg` icons. Conflicts, if any, will be in that list —
-   nowhere else.
+   `libcalamares/network/Manager.cpp`, `locale/Config.cpp`,
+   `displaymanager/displaymanager.conf`, `displaymanager/main.py`, and a
+   dozen `data/images/*.svg` icons. Conflicts, if any, will be in that
+   list — nowhere else.
 4. Rebuild and smoke-test before pushing (see "Build" below). At minimum:
    does it still compile, do our config keys still exist (upstream can
    rename/remove config options between releases).
@@ -96,6 +97,50 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
 
 ## Architecture decisions (and why)
 
+- **Login manager = greetd + ReGreet, not SDDM.** Chosen over gtkgreet/
+  tuigreet specifically because ReGreet natively supports a background
+  image + fit mode + a separate CSS override file
+  (`/etc/greetd/regreet.{toml,css}`, shipped statically by `larch-base`'s
+  airootfs, same as the GRUB theme) — matching "looks ours, minimal but
+  aesthetic" with far less hand-rolled CSS than restyling gtkgreet's bare
+  widget from scratch. `displaymanager/main.py`'s `DMgreetd.set_autologin()`
+  has no branch for regreet upstream — this is the first *Python*-module
+  patch to this fork (previously only C++: `libcalamares/network/Manager.cpp`,
+  `locale/Config.cpp`), same forked/documented/not-upstream-contributed
+  precedent. Checked *before* the existing gtkgreet branch; for Larch this
+  never matters in practice since gtkgreet is never installed.
+
+  Two non-obvious, easy-to-accidentally-revert requirements this depends
+  on, both in `displaymanager.conf`:
+  - **`defaultDesktopEnvironment`** (`executable: /usr/bin/niri`,
+    `desktopFile: niri`) — niri isn't in `main.py`'s hardcoded
+    `desktop_environments` list (Hyprland and sway are, niri isn't), so
+    `find_desktop_environment()` returns `None` for it, and
+    `DMgreetd.set_autologin()` has no `None`-guard on
+    `default_desktop_environment` (unlike `DMsddm`). Without this key set
+    explicitly, installing crashes the first time `displaymanager` runs.
+  - **`basicSetup: true`** — gates whether `DMgreetd.basic_setup()` (which
+    would `useradd`/`groupadd` the greeter account) runs at all. In
+    practice this is a no-op either way: greetd's own Arch package ships
+    a `sysusers.d` fragment (`u greeter - "greetd greeter user" - /bin/bash`,
+    no explicit group, so sysusers defaults to a same-named `greeter`
+    group) applied automatically the moment `greetd` is pacstrapped, via
+    the `systemd-sysusers` pacman hook — so the account already exists
+    before Calamares ever runs. `greeter_user`/`greeter_group` in the
+    `greetd:` config block are set to `"greeter"`/`"greeter"` to match
+    that real account, not Calamares' own class default (`"greetd"` for
+    the group) or the placeholder values (`tom_bombadil`/`wheel`) this
+    file had before anything used it for real.
+
+  Autologin parity: live-boot autologin straight into niri (the "larch"
+  user) is preserved unchanged via `larch-base`'s
+  `/etc/greetd/config.toml` `[initial_session]`, same as SDDM's old
+  `[Autologin]` section. `larch-preinstall`'s `_strip_greetd_autologin`
+  (replacing the old `_strip_sddm_autologin`) removes that section before
+  install, as defense-in-depth in case a later module aborts the install
+  — `displaymanager` itself also removes autologin when the user didn't
+  check "log in automatically", but that runs much later in the exec
+  sequence.
 - **Base install = `unpackfs` unsquashing larch-base's actual live squashfs**
   (`/run/archiso/bootmnt/larch/x86_64/airootfs.sfs`, confirmed by mounting a
   built ISO and checking `/usr/share/archiso`'s own boot-hook conventions),

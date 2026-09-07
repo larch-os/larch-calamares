@@ -102,30 +102,32 @@ def _restore_kernel_and_initramfs(root_mount_point):
     return None
 
 
-def _strip_sddm_autologin(root_mount_point):
+def _strip_greetd_autologin(root_mount_point):
     """
-    /etc/sddm.conf.d/00-larch.conf's [Autologin] section logs straight
-    into the "larch" live user -- convenient for the live session,
-    wrong for the installed system, which has a real user and should
-    show a login screen. Only [Autologin] is stripped; [General] and
-    [Theme] (virtual keyboard, silent SDDM theme) are still wanted on
-    the installed system, so the file itself stays.
+    /etc/greetd/config.toml's [initial_session] logs straight into the
+    "larch" live user -- convenient for the live session, wrong for the
+    installed system, which has a real user and should show a login
+    screen. Only initial_session is stripped; default_session (the
+    regreet/cage command) is still wanted on the installed system, so the
+    file itself stays -- this is also Calamares' own displaymanager
+    module's later job, run here too as defense-in-depth: if anything
+    between this step and displaymanager aborts the install, the target
+    must not be left bootable straight into an autologin session with no
+    real login.
     """
-    sddm_conf = os.path.join(root_mount_point, "etc/sddm.conf.d/00-larch.conf")
-    if not os.path.exists(sddm_conf):
+    import toml
+
+    greetd_conf = os.path.join(root_mount_point, "etc/greetd/config.toml")
+    if not os.path.exists(greetd_conf):
         return
-    with open(sddm_conf) as f:
-        lines = f.readlines()
-    if "[Autologin]\n" not in lines:
+    with open(greetd_conf) as f:
+        config = toml.load(f)
+    if "initial_session" not in config:
         return
-    start = lines.index("[Autologin]\n")
-    end = start + 1
-    while end < len(lines) and not lines[end].startswith("["):
-        end += 1
-    del lines[start:end]
-    with open(sddm_conf, "w") as f:
-        f.writelines(lines)
-    libcalamares.utils.debug("Removed live-only [Autologin] section from {}".format(sddm_conf))
+    del config["initial_session"]
+    with open(greetd_conf, "w") as f:
+        toml.dump(config, f)
+    libcalamares.utils.debug("Removed live-only initial_session from {}".format(greetd_conf))
 
 
 def _remove_getty_autologin(root_mount_point):
@@ -146,7 +148,7 @@ STEPS = (
     _remove_archiso_mkinitcpio_hooks,
     _restore_standard_mkinitcpio_preset,
     _restore_kernel_and_initramfs,
-    _strip_sddm_autologin,
+    _strip_greetd_autologin,
     _remove_getty_autologin,
 )
 
