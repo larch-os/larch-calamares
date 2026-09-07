@@ -19,7 +19,7 @@ Presentation
 
     Slide {
         centeredText: qsTr("<h2>Larch</h2>" +
-                            "Distro for lazy yet power users.")
+                            "Distro for developers and engineers.")
     }
 
     Slide {
