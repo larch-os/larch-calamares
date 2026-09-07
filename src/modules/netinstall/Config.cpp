@@ -24,6 +24,7 @@
 #include "utils/Variant.h"
 
 #include <QNetworkReply>
+#include <QtConcurrent/QtConcurrent>
 
 Config::Config( QObject* parent )
     : QObject( parent )
@@ -80,9 +81,31 @@ Config::checkInternet()
     {
         return;  // Some other real failure is already showing; don't clobber it.
     }
+    if ( m_internetCheckWatcher && !m_internetCheckWatcher->isFinished() )
+    {
+        return;  // A probe from a previous onActivate() is still running.
+    }
 
-    Calamares::Network::Manager network;
-    setStatus( network.hasInternet() ? Status::Ok : Status::NoInternet );
+    delete m_internetCheckWatcher;
+    m_internetCheckWatcher = new QFutureWatcher< bool >( this );
+    connect( m_internetCheckWatcher, &QFutureWatcher< bool >::finished, this, &Config::internetCheckFinished );
+    m_internetCheckWatcher->setFuture(
+        QtConcurrent::run( []() { return Calamares::Network::Manager().checkHasInternet(); } ) );
+}
+
+void
+Config::internetCheckFinished()
+{
+    const bool online = m_internetCheckWatcher->result();
+    setStatus( online ? Status::Ok : Status::NoInternet );
+
+    // packages.conf's skip_if_no_internet reads this same globalStorage
+    // key at the actual install step, much later in the exec sequence --
+    // it was previously written once by welcome's own startup check and
+    // never touched again. Keep it in sync with what this page just found,
+    // so a connection made after welcome's check isn't silently ignored
+    // at install time even though this page now correctly shows Ok.
+    Calamares::JobQueue::instance()->globalStorage()->insert( "hasInternet", online );
 }
 
 QString

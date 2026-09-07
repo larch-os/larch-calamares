@@ -376,6 +376,25 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   `groupswidget` whenever that status is active, alongside the
   existing status-label text.
 
+- **That per-page recheck above never actually noticed a connection
+  made *after* the installer started.** `Config::checkInternet()`
+  originally called `Manager::hasInternet()` -- a cached flag, set
+  exactly once by welcome's own startup probe and never updated again
+  on its own (welcome's requirements retry loop only re-fires when a
+  *mandatory* requirement is unsatisfied; internet isn't mandatory
+  here, so it never loops). Revisiting the netinstall page re-read the
+  same stale flag, not a fresh check -- connect to Wi-Fi mid-install
+  and this page would keep showing `NoInternet` forever, and
+  `packages.conf`'s `skip_if_no_internet` (reading the same
+  never-updated `globalStorage["hasInternet"]`) would still skip
+  everything at the real install step regardless. Fixed by having
+  `checkInternet()` run a genuine `Manager::checkHasInternet()` probe
+  on a `QtConcurrent` worker thread (the same `QFutureWatcher` idiom
+  `RequirementsChecker.cpp` already uses -- off the GUI thread because
+  the probe itself can block for seconds, see the timeout fix above),
+  and writing the fresh result back into `globalStorage["hasInternet"]`
+  too, so the later `packages` job sees it.
+
 ## Packaging
 
 `PKGBUILD` (repo root) builds this repo directly via a git source, not a

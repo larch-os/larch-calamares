@@ -17,6 +17,7 @@
 #include "locale/TranslatableConfiguration.h"
 #include "modulesystem/InstanceKey.h"
 
+#include <QFutureWatcher>
 #include <QObject>
 #include <QVariantMap>
 
@@ -73,6 +74,15 @@ public:
      * checked it. Only overrides status when it's currently Ok or
      * NoInternet, so it won't clobber some other real failure (bad
      * configuration, bad data, etc).
+     *
+     * Runs a *fresh* probe (Manager::checkHasInternet()) on a worker
+     * thread, not Manager::hasInternet()'s cached flag -- that flag is
+     * only ever set once, by welcome's own startup check, and never
+     * updated again on its own. Without a real re-probe here, connecting
+     * to a network after starting the installer offline would never be
+     * noticed: this page would keep showing NoInternet forever, no matter
+     * how many times it's revisited. Off the GUI thread because the probe
+     * itself can block for seconds (see Manager.cpp's own timeout notes).
      */
     void checkInternet();
 
@@ -107,6 +117,7 @@ Q_SIGNALS:
 private Q_SLOTS:
     void retranslate();
     void loadingDone();
+    void internetCheckFinished();
 
 private:
     Calamares::Locale::TranslatedString* m_sidebarLabel = nullptr;  // As it appears in the sidebar
@@ -115,6 +126,7 @@ private:
     LoaderQueue* m_queue = nullptr;
     Status m_status = Status::Ok;
     bool m_required = false;
+    QFutureWatcher< bool >* m_internetCheckWatcher = nullptr;
 };
 
 #endif
