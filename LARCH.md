@@ -192,6 +192,14 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   swap UI at all. Actual zram setup (package + `/etc/systemd/zram-generator.conf`)
   lives in `larch-base`'s airootfs, not here; it carries over via the
   squashfs like everything else.
+- **Root filesystem defaults to Btrfs**, not ext4 (`partition.conf`'s
+  `defaultFileSystemType` and `partitionLayout`'s `root` entry). `/boot`
+  stays `ext4` deliberately — it's a separate, unencrypted partition
+  purely for GRUB's sake (see below), no reason to give GRUB Btrfs to
+  deal with there. No subvolume layout configured (no `@`/`@home`
+  split, no compression mount options) — just plain Btrfs, matching
+  the literal ask; a snapshot-friendly subvolume layout would be a
+  separate, bigger decision.
 - **Encryption defaults on, opt-out.** `preCheckEncryption: true`.
   `partition.conf`'s `partitionLayout` gives `/boot` its own partition
   with `noEncrypt: true`, kept separate from the LUKS root, so GRUB never
