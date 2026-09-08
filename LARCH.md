@@ -162,7 +162,8 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   `netinstall@larch-essentials` (`netinstall/larch-essentials.conf`,
   sidebar "Larch Essentials"), is Larch's own recommended tooling
   (chezmoi, pass, pika-backup, htop, btop, lazygit, uv, k3d-bin,
-  kubectl, herdr-bin, neovim, base-devel, jq) — `selected: true`,
+  kubectl, herdr-bin, neovim, base-devel, jq, xwayland-satellite,
+  tldr, gdu) — `selected: true`,
   opt-out instead of opt-in. Both are declared in `settings.conf`'s
   `instances:` section (a custom `id` needs an explicit `config:` key,
   or it'd try to reuse `netinstall.conf`) and both appear in the
