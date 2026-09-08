@@ -26,6 +26,7 @@
 # has to differ once Calamares itself is gone from the installed
 # system -- e.g. noctalia's bar losing the install button.
 
+import json
 import os
 import shutil
 
@@ -74,6 +75,32 @@ def add_user_to_group(user, group):
     if ret != 0:
         libcalamares.utils.warning(
             "Failed to add {} to group {} (exit {})".format(user, group, ret))
+
+
+def root_is_btrfs():
+    """
+    Btrfs is only the *default* root filesystem (see partition.conf's
+    defaultFileSystemType) -- manual partitioning can still pick ext4,
+    xfs, etc. Check globalStorage's "partitions" list (the same one
+    fstab's own module reads to decide this) rather than assume, since
+    forcing Docker's btrfs storage driver onto a non-Btrfs root would
+    just make the daemon fail to start.
+    """
+    partitions = libcalamares.globalstorage.value("partitions") or []
+    for p in partitions:
+        if p.get("mountPoint") == "/":
+            return p.get("fs", "").lower() == "btrfs"
+    return False
+
+
+def configure_docker_storage_driver(root_mount_point):
+    if not root_is_btrfs():
+        return
+    docker_dir = os.path.join(root_mount_point, "etc/docker")
+    os.makedirs(docker_dir, exist_ok=True)
+    with open(os.path.join(docker_dir, "daemon.json"), "w") as f:
+        json.dump({"storage-driver": "btrfs"}, f, indent=2)
+        f.write("\n")
 
 
 # Bash's own skel (plain Arch default) already gave the new user these
@@ -137,6 +164,7 @@ def run():
         enable_service("docker")
         if user:
             add_user_to_group(user, "docker")
+        configure_docker_storage_driver(root_mount_point)
 
     if "incus" in packages:
         enable_service("incus")

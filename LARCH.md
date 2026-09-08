@@ -239,6 +239,15 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   globalStorage's `packageOperations` key directly (same key `netinstall`
   writes) instead.
 
+  Also writes `/etc/docker/daemon.json` (`storage-driver: btrfs`) when
+  Docker is selected, but only if root actually *is* Btrfs — checked
+  via globalStorage's `partitions` list (the same one `fstab`'s own
+  module reads), not assumed, since Btrfs is only the *default* root
+  filesystem (`partition.conf`'s `defaultFileSystemType`), not the
+  only one manual partitioning can produce. Forcing the btrfs storage
+  driver onto a non-Btrfs root would just make the daemon fail to
+  start.
+
   Also seeds the installer-created user's zsh/niri/noctalia config,
   copied straight from the live "larch" user's home (skipping the bash
   files, since `useradd -m` already gave the new user those from
