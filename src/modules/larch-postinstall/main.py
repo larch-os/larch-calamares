@@ -123,32 +123,6 @@ def seed_user_config(root_mount_point, user):
             "Failed to chown /home/{} after seeding config (exit {})".format(user, ret))
 
 
-def ensure_passwordless_wheel_sudo(root_mount_point):
-    """
-    users.conf's SetupSudoJob only ever writes "%wheel ALL=(ALL) ALL"
-    (see larch-calamares' users/MiscJobs.cpp -- there's no NOPASSWD
-    option exposed at all) to /etc/sudoers.d/10-installer. Meanwhile
-    larch-base's own airootfs/etc/sudoers.d/wheel-nopasswd already
-    grants "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" and survives unpackfs
-    onto the installed system unchanged.
-
-    Today those two files happen to combine correctly -- sudo reads
-    /etc/sudoers.d/* in lexical order via @includedir, last matching
-    rule wins, and "wheel-nopasswd" sorts after "10-installer" -- but
-    that's an accident of two filenames, not a real guarantee (rename
-    either file, or have upstream Calamares change its own filename,
-    and wheel members silently go back to needing a password). Make it
-    explicit: overwrite Calamares' own file with the same NOPASSWD rule
-    directly, rather than relying on file ordering to get there.
-    """
-    path = os.path.join(root_mount_point, "etc/sudoers.d/10-installer")
-    if not os.path.exists(path):
-        return
-    with open(path, "w") as f:
-        f.write("%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n")
-    os.chmod(path, 0o440)
-
-
 def run():
     """
     Post-install setup for selected optional extras.
@@ -158,7 +132,6 @@ def run():
     user = libcalamares.globalstorage.value("username")
 
     seed_user_config(root_mount_point, user)
-    ensure_passwordless_wheel_sudo(root_mount_point)
 
     if "docker" in packages:
         enable_service("docker")

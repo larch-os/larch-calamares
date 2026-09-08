@@ -247,21 +247,23 @@ QT_QPA_PLATFORMTHEME=qt6ct HOME=/root ./calamares -d
   reason to keep an installer around post-install — and `users.conf`'s
   `user.shell` is `/usr/bin/zsh`, not the Calamares default `/bin/bash`.
 
-  Also makes the installed user's wheel sudo explicitly passwordless,
-  matching the live "larch" user. Upstream's `users` module (see
-  `MiscJobs.cpp`) has no NOPASSWD option at all — it only ever writes
-  `%wheel ALL=(ALL) ALL` to `/etc/sudoers.d/10-installer`. Separately,
-  `larch-base`'s own `airootfs/etc/sudoers.d/wheel-nopasswd`
-  (`%wheel ALL=(ALL:ALL) NOPASSWD: ALL`) survives `unpackfs` onto the
-  installed system unchanged, and nothing ever strips it. sudo reads
-  `/etc/sudoers.d/*` in lexical order via `@includedir`, last matching
-  rule wins — so today these two files already combine correctly
-  purely because `"10-installer"` sorts before `"wheel-nopasswd"`.
-  That's an accident of two filenames, not a real guarantee (rename
-  either file, or have upstream Calamares change its own filename, and
-  wheel members silently go back to needing a password). `larch-postinstall`
-  now overwrites `10-installer` with the same NOPASSWD rule directly,
-  so the outcome no longer depends on that ordering.
+  `users.conf`'s `sudoersGroup` is commented out (disabled), on
+  upstream's own advice in that file's comments: "If your Distribution
+  already sets up a group of sudoers in its packaging, remove this
+  setting... Otherwise, the setting will be duplicated." Larch does
+  exactly that — `larch-base`'s own `airootfs/etc/sudoers.d/wheel-nopasswd`
+  (`%wheel ALL=(ALL:ALL) NOPASSWD: ALL`) already grants the installed
+  user passwordless sudo (it's in `wheel`, added via `defaultGroups`,
+  unrelated to `sudoersGroup`), and survives `unpackfs` onto the
+  installed system unchanged. With `sudoersGroup` active, Calamares'
+  own `users` module (see `MiscJobs.cpp`, no NOPASSWD option at all)
+  would *also* write `/etc/sudoers.d/10-installer` with a weaker
+  `%wheel ALL=(ALL) ALL` rule — redundant at best, and only harmless
+  because sudo's `@includedir` processes `/etc/sudoers.d/*` in lexical
+  order with last-match-wins semantics, and `"10-installer"` happens to
+  sort before `"wheel-nopasswd"`. Disabling `sudoersGroup` removes that
+  file (and that accidental-ordering dependency) entirely, rather than
+  fighting it after the fact.
 - **`larch-preinstall`** (our own module, runs right after `unpackfs`)
   strips two live-boot-only files that `unpackfs` otherwise carries
   straight into the install target unchanged: `/etc/mkinitcpio.conf.d/
